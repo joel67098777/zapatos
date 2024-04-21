@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mapa</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<style>
+        body { 
+            margin: 0; 
+            padding: 0;
+        }
+        #map {
+             position: absolute; 
+             top: 0; bottom: 0; 
+             width: 100%;
+            }
+        #latitud, #longitud, #localizar { 
+             position: absolute;
+             z-index: 1;
+            }
+        #latitud { 
+            top: 10px;
+            left: 10px; 
+        }
+        #longitud { 
+            top: 40px; 
+            left: 10px; 
+        }
+        #localizar { 
+            top: 80px;
+            left: 10px; 
+            background-color: rgb(28, 201, 85);
+            color: whitesmoke;
+            border: none;
+            width: 95px;
+            height: 25px;
+            border-radius: 20px;
+        }
+        p{
+            font-weight: bold;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            color: rgb(22, 31, 26);
+            font-size: 20px;
+            margin-top: 7px;
+        }
+        span{
+            color: rgba(253, 72, 17, 0.945);
+            font-weight: lighter;
+        }
+
+</style>
+</head>
+<body>
+<div id="map"></div>
+<p id="latitud">Latitud: <span></span></p>
+<p id="longitud">Longitud: <span></span></p>
+<button id="localizar">Ubicacion</button>
+ 
+    <script>
+        let latitud, longitud;
+        let map, marker;
+ 
+        function obtenerCoordenadas() {
+            $.ajax({
+                url: "conexion.php",
+                type: "GET",
+                dataType: "json",
+                success: function(data) {
+                    latitud = data.latitud;
+                    longitud = data.longitud;
+                    $("#latitud span").text(latitud);
+                    $("#longitud span").text(longitud);
+                    if (marker) {
+                        marker.setLngLat([longitud, latitud]);
+                    } else {
+                        marker = new mapboxgl.Marker().setLngLat([longitud, latitud]).addTo(map);
+                    }
+                },
+                complete: function() {
+                    setTimeout(obtenerCoordenadas, 5000); // Solicitar las coordenadas nuevamente en 5 segundos
+                }
+            });
+        }
+ 
+        obtenerCoordenadas(); // Iniciar la solicitud de coordenadas
+ 
+        mapboxgl.accessToken = 'pk.eyJ1IjoidXVvMjAyNyIsImEiOiJjbHVteGl2bWUxaGtyMmxsZDl3ZTEwZmxvIn0.sQPxDeOgLt3MsqY1RVO7aw';
+        map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/outdoors-v12',
+            projection: 'mercator',
+            zoom: 1,
+            center: [30, 15]
+        });
+ 
+        map.addControl(new mapboxgl.NavigationControl());
+        map.scrollZoom.disable();
+ 
+        map.on('style.load', () => {
+            map.setFog({});
+        });
+ 
+        const secondsPerRevolution = 240;
+        const maxSpinZoom = 5;
+        const slowSpinZoom = 3;
+ 
+        let userInteracting = false;
+        const spinEnabled = true;
+ 
+        function spinGlobe() {
+            const zoom = map.getZoom();
+            if (spinEnabled && !userInteracting && zoom < maxSpinZoom) {
+                let distancePerSecond = 360 / secondsPerRevolution;
+                if (zoom > slowSpinZoom) {
+                    const zoomDif = (maxSpinZoom - zoom) / (maxSpinZoom - slowSpinZoom);
+                    distancePerSecond *= zoomDif;
+                }
+                const center = map.getCenter();
+                center.lng -= distancePerSecond;
+                map.easeTo({ center, duration: 1000, easing: (n) => n });
+            }
+        }
+ 
+        map.on('mousedown', () => {
+            userInteracting = true;
+        });
+ 
+        map.on('dragstart', () => {
+            userInteracting = true;
+        });
+ 
+        map.on('moveend', () => {
+            spinGlobe();
+        });
+ 
+        spinGlobe();
+ 
+        const localizar = document.getElementById('localizar');
+        localizar.addEventListener('click', () => {
+            if (latitud && longitud) {
+                map.flyTo({ center: [longitud, latitud], zoom: 16 });
+            } else {
+                alert('No se han obtenido coordenadas aún.');
+            }
+        });
+</script>
+</body>
+</html>
